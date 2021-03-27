@@ -5,6 +5,7 @@ import time
 class SERVER:
 	def __init__(self, keys, incr, dims, context):
 		self.scale = 2**40
+		self.count = 0
 		self.dims = dims
 		self.context = context
 		#Keygen		
@@ -48,6 +49,7 @@ class SERVER:
 		return ans
 
 	def re_encrypt(self, x):
+		self.count += 1
 		x_plain = Plaintext(); x_vec = DoubleVector()
 
 		self.decryptor.decrypt(x, x_plain)
@@ -99,11 +101,13 @@ class SERVER:
 		start = time.time()
 		for i in range(int(np.log2(self.vec_len))-1, -1, -1):
 
-			if self.context.get_context_data(x.parms_id()).chain_index() <= 1:
-				x = self.re_encrypt(x)
+			# if self.context.get_context_data(x.parms_id()).chain_index() <= 1:
+				# x = self.re_encrypt(x)
 
 			self.evaluator.mod_switch_to_inplace(id, x.parms_id())
 			temp = Ciphertext(); s1 = Ciphertext(); s2 = Ciphertext()
+			# print(self.slot_count, 2**i)
+			# print(np.sum(ones))
 			self.evaluator.rotate_vector(id, self.slot_count - 2**i, self.gal_keys, temp)
 
 			self.evaluator.multiply(temp, x, s1)
@@ -121,13 +125,16 @@ class SERVER:
 			if i != 0:
 				self.evaluator.rotate_vector_inplace(temp, 2**i + 2**(i-1), self.gal_keys)
 				self.evaluator.multiply_inplace(id, temp)
-				id = self.re_encrypt(id)
+				self.evaluator.relinearize_inplace(id, self.relin_keys)
+				self.evaluator.rescale_to_next_inplace(id)
+
+				# id = self.re_encrypt(id)
 
 			# print("ans =", end=" "); self.print_value(ans)
 			# print(s.scale(), ans.scale())
 			# print()
 		self.expand_vector(x)
-		print("Time taken for each addition =", time.time() - start)
+		# print("Time taken for each addition =", time.time() - start)
 		# self.print_value(x)
 
 		return x
@@ -225,10 +232,11 @@ class SERVER:
 		x_plain = Plaintext(); x_vec = DoubleVector()
 		self.decryptor.decrypt(x, x_plain)
 		self.encoder.decode(x_plain, x_vec)
-		print(x_vec[0:4])
+		print(x_vec[0])
 
 	def goldschmidt(self, X):
-
+		# temp = self.count
+		temp = 0
 		# print("X level=", context.get_context_data(X.parms_id()).chain_index())
 		norm = self.sum_of_squares(X)
 		# print("square =", end=" "); self.print_value(norm)
@@ -292,6 +300,7 @@ class SERVER:
 			self.evaluator.mod_switch_to_inplace(half, temp_r.parms_id())
 			temp_r.scale(self.scale)
 			self.evaluator.add_plain(temp_r, half, r)
+			# temp = self.context.get_context_data(r.parms_id()).chain_index()
 
 			##x = x + x*r
 			temp_x = Ciphertext()
@@ -328,21 +337,27 @@ class SERVER:
 
 			# self.print_value(x)
 			# if i%2:
-			r = self.re_encrypt(r) 
-			x = self.re_encrypt(x)
-			h = self.re_encrypt(h)
+			# print(self.context.get_context_data(r.parms_id()).chain_index() - temp)
+			if self.context.get_context_data(x.parms_id()).chain_index() <= 2:
+				temp += 1
+				# r = self.re_encrypt(r) 
+				x = self.re_encrypt(x)
+				h = self.re_encrypt(h)
 			# self.decryptor.decrypt(r, r_res)
 			# self.encryptor.encrypt(r_res, r)
 			# print("r = 0.5-x*h"); self.print_value(r)
 		two = Plaintext()
 		self.encoder.encode(2.0, self.scale, two)
+
+		self.evaluator.mod_switch_to_inplace(two, h.parms_id())
 		self.evaluator.multiply_plain_inplace(h, two)
 		# self.evaluator.relinearize_inplace(h, self.relin_keys)
 		self.evaluator.rescale_to_next_inplace(h)
 
 		# self.print_value(x)
 		# self.print_value(h)
-		
+		# print(self.count - temp)
+		# print(temp)
 		return x, h
 
 	def init_vector(self):
@@ -440,6 +455,7 @@ class SERVER:
 				for j in range(len(eig_vec)):
 					
 					X_j = Ciphertext(eig_vec[j])
+					# print(self.context.get_context_data(X_j.parms_id()).chain_index())
 					x = self.vect_mat_product(X_j, r)
 					# x = Ciphertext()
 					# self.evaluator.multiply(X_j, r, x)
@@ -462,7 +478,10 @@ class SERVER:
 
 					eig_j = Ciphertext(eig[j])
 					# print("eig =", end=" "); self.print_value(eig_j)
+					# print(self.context.get_context_data(x.parms_id()).chain_index())
 					self.evaluator.mod_switch_to_inplace(eig_j, x.parms_id())
+					eig_j.scale(self.scale); x.scale(self.scale)
+
 					self.evaluator.multiply_inplace(x, eig_j)
 					self.evaluator.relinearize_inplace(x, self.relin_keys)
 					self.evaluator.rescale_to_next_inplace(x)
@@ -499,6 +518,7 @@ class SERVER:
 				# print("Computing eigen value")
 				# start = time.time()
 				eig_val, eig_inv = self.goldschmidt(S1)
+
 				# print("Time by goldschmidt =", time.time() - start)
 				# return S, r
 				#r = r*eig_inv
@@ -508,13 +528,16 @@ class SERVER:
 					# self.evaluator.mod_switch_to_inplace(eig_inv, S.parms_id())
 				# else:
 				self.evaluator.mod_switch_to_inplace(S1, eig_inv.parms_id())
-				print("eig_val", end=" "); self.print_value(eig_val)
+				# print("eig_val", end=" "); self.print_value(eig_val)
 				# print("eig_inv", end=" "); self.print_value(eig_inv)
 
 				self.evaluator.multiply_inplace(S1, eig_inv)
 				r = self.re_encrypt(S1)
+
 				# print("r =", end=" "); self.print_value(r)
 			print("final eig_val", end=" "); self.print_value(eig_val)
+			eig_val = self.re_encrypt(eig_val)
+			# print(self.count)
 			eig.append(eig_val); eig_vec.append(r)
 
 		return eig, eig_vec
