@@ -1,11 +1,12 @@
-# HPCA
-This repository focuses on performing PCA on encrypted data.
+# Homomorphic PCA
+This repository focuses on performing PCA on encrypted data. It uses [CKKS homomorphic scheme](https://eprint.iacr.org/2016/421.pdf) to perform computations on encrypted data.
 To use this repository, clone the repo and type :- 
 ```
 cd Homomorphic_PCA
 python3 pca.py
 ```
-Dependencies required :-
+For implementing CKKS homomorphic scheme, we have used SEAL-Python(python binding for the [Microsoft SEAL library](https://github.com/microsoft/SEAL))
+Dependencies required for this repository are:-
 * [Seal-Python](https://github.com/Huelse/SEAL-Python)
 * PIL
 * sklearn
