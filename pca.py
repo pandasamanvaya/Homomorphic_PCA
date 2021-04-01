@@ -1,6 +1,6 @@
 from seal import * 
 import numpy as np
-import time 
+import time, sys 
 from sklearn.metrics import r2_score
 from read_data import *
 from server import *
@@ -19,37 +19,42 @@ class Key:
 
 #CKKS Parameters
 params = EncryptionParameters(scheme_type.CKKS)
-poly_modulus_degree = 8192*2
+poly_modulus_degree = 2**15
+# poly_modulus_degree = 2**14
 params.set_poly_modulus_degree(poly_modulus_degree)
-# params.set_coeff_modulus(CoeffModulus.Create(poly_modulus_degree, [50, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 50]))
-params.set_coeff_modulus(CoeffModulus.Create(poly_modulus_degree, [59, 40, 40, 40, 40, 40, 40, 40, 40, 59]))
+params.set_coeff_modulus(CoeffModulus.Create(poly_modulus_degree, [60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60]))
+# params.set_coeff_modulus(CoeffModulus.Create(poly_modulus_degree, [59, 40, 40, 40, 40, 40, 40, 40, 40, 59]))
+# params.set_coeff_modulus(CoeffModulus.Create(poly_modulus_degree, [60, 40, 40, 40, 40, 40, 40, 40, 60]))
 
-# scale = 2**40
 context = SEALContext.Create(params)
 keys = Key(context)
 user = USER(keys, context)
 
 
-dim = 8
+dim = 2
 imgs = 100
 
-# X_ori = wine_data()
-X_ori = load_mnist("training", no_of_imgs=imgs)
+##Datasets
+
+X_ori = wine_data()
+# X_ori = wine_data("white")
+# X_ori = air_quality_data()
+# X_ori = parkinson_data()
+# X_ori = load_mnist("training", no_of_imgs=imgs)
+# X_ori = load_fashion_mnist("training", no_of_imgs=imgs)
 # size = X_ori.shape
 # # X_ori = X_ori.reshape((size[0], size[1]*size[2]))
 # X_ori = load_yale()
+
 mu = np.mean(X_ori, axis=0)
 X = X_ori - mu
-print(X.shape)
+print("Shape of data =", X.shape)
 
-cov_mat = X.T.dot(X)
-eig_val, eig_vec = np.linalg.eig(cov_mat)
-print(eig_val[:10]) 
 X_cipher = user.encrypt_data(X)
-print(X_cipher.shape, user.incr, user.vec_len)
+print("No.of levels =", context.get_context_data(X_cipher[0].parms_id()).chain_index())
+# print(X_cipher.shape, user.incr, user.vec_len)
 
 server = SERVER(keys, user.incr, dim, context)
-# temp_x = X[]
 start = time.time()
 eig_val, eig_vec = server.power_iteration(X_cipher)
 end = time.time()
@@ -60,5 +65,6 @@ with open("eigen_vector.npy", "wb") as file:
 X_red = X.dot(vec)
 print(X_red.shape)
 X_new = X_red.dot(vec.T) + mu 
+print("No.of re-encryptions =", server.count)
 print("Time taken =",(end-start)/60,"mins")
 print("R2 score =", r2_score(X_ori, X_new))

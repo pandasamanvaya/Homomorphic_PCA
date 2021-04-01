@@ -44,7 +44,7 @@ class USER:
 		self.vec_len = nearest_pow_two(X.shape[1])
 		self.incr = self.slot_count//self.vec_len
 
-		print(self.vec_len, self.incr)
+		print("N =", len(X),"k =",self.vec_len, "j =", self.incr)
 		print("Encrypting")
 		i = 0
 		while i < len(X):
