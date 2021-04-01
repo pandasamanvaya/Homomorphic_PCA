@@ -31,12 +31,12 @@ keys = Key(context)
 user = USER(keys, context)
 
 
-dim = 2
+dim = 4
 imgs = 100
 
 ##Datasets
 
-X_ori = wine_data()
+# X_ori = wine_data()
 # X_ori = wine_data("white")
 # X_ori = air_quality_data()
 # X_ori = parkinson_data()
@@ -44,7 +44,7 @@ X_ori = wine_data()
 # X_ori = load_fashion_mnist("training", no_of_imgs=imgs)
 # size = X_ori.shape
 # # X_ori = X_ori.reshape((size[0], size[1]*size[2]))
-# X_ori = load_yale()
+X_ori = load_yale()
 
 mu = np.mean(X_ori, axis=0)
 X = X_ori - mu
